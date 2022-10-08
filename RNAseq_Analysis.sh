@@ -46,7 +46,7 @@ module load cutadapt/2.4
 module load star/2.7.1a
 module load fastqc/0.11.7
 
-echo "Step 1: Transferring Ra RNAseq files to analysis directory and running fastqc on them"
+echo "Step 1: Transferring RNAseq files to analysis directory and running FastQC on them"
 
 cp -t $parameterFolder $parameterInput/*.gz
 
