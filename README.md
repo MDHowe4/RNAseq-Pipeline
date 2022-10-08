@@ -31,6 +31,7 @@ TBAdded
 
 ## To Add
 - Replace Cutadapt with package that runs faster and is more dynamic (Trimmomatic/Trim Galore!)
+
 More extensive quality control with:
 
 - BEDtools, bedGraphToBigWig
