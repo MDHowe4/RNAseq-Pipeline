@@ -18,7 +18,7 @@ helpFunction()
    exit 1 # Exit script after printing help
 }
 
-while getopts "f:i:d:a" opt
+while getopts "f:i:d:a:" opt
 do
    case "$opt" in
       f ) parameterFolder="$OPTARG" ;;
@@ -28,7 +28,10 @@ do
       ? ) helpFunction ;; # Print helpFunction in case parameter is non-existent
    esac
 done
-
+echo "$parameterFolder"
+echo "$parameterInput"
+echo "$parameterDNA"
+echo "$parameterAnno"
 # Print helpFunction in case parameters are empty
 if [ -z "$parameterFolder" ] || [ -z "$parameterInput" ] || [ -z "$parameterDNA" ] || [ -z "$parameterAnno" ]
 then
