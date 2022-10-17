@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --time=04:00:00
-#SBATCH --ntasks=4
-#SBATCH --mem=16g
+#SBATCH --ntasks=40
+#SBATCH --mem=32g
 #SBATCH --tmp=16g
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=howex118@umn.edu
@@ -39,10 +39,14 @@ echo "$parameterInput"
 echo "$parameterDNA"
 echo "$parameterAnno"
 
+module use ~/modulefiles.local
 module load cutadapt/2.4
 module load star/2.7.1a
 module load fastqc/0.11.7
-
+module load python3
+module load ribodetector
+module load bwa
+module load samtools
 echo "Step 1: Transferring RNAseq files to analysis directory and running FastQC on them"
 
 cd $parameterFolder
@@ -52,7 +56,8 @@ mkdir trimmed_reads
 mkdir STAR
 mkdir Genome_indices
 mkdir Fastqc
-
+mkdir ribodepleted
+cp -t ${parameterFolder}/Genome_indices $parameterDNA
 cp -t ${parameterFolder}/Input_reads ${parameterInput}/*.gz
 
 (
@@ -62,29 +67,41 @@ cp -t ${parameterFolder}/Input_reads ${parameterInput}/*.gz
    ls *_R1_001.fastq.gz | cut -f1 -d "." >$parameterFolder/samples_names_RNAseqR1.txt
    ls *_R2_001.fastq.gz | cut -f1 -d "." >$parameterFolder/samples_names_RNAseqR2.txt
 )
-echo "Step 3: Running Fastqc"
-paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
+# echo "Step 3: Running Fastqc"
+# paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
 
-   fastqc -t 4 Input_reads/${sampleR1}.fastq.gz -o $parameterFolder/Fastqc
-   fastqc -t 4 Input_reads/${sampleR2}.fastq.gz -o $parameterFolder/Fastqc
+#    fastqc -t 4 Input_reads/${sampleR1}.fastq.gz -o $parameterFolder/Fastqc
+#    fastqc -t 4 Input_reads/${sampleR2}.fastq.gz -o $parameterFolder/Fastqc
 
-done
+# done
 
 echo "Step 4: Trimming illumina adapters from files"
 paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
 
    echo "On sample: $sampleR1 and $sampleR2 "
 
-   cutadapt -a CTGTCTCTTATACACATCT \
-      -A CTGTCTCTTATACACATCT \
-      -m 30 \
+   cutadapt -m 30 \
       -u 1 \
+      -U 1 \
       --quality-base=33 \
-      --cores=8 \
+      --cores=40 \
       -o $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz -p $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
       $parameterFolder/Input_reads/${sampleR1}.fastq.gz $parameterFolder/Input_reads/${sampleR2}.fastq.gz \
       >>cutadapt_primer_trimming_stats.txt 2>&1
 
+done
+
+paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
+
+   echo "On sample: $sampleR1 and $sampleR2 "
+
+   ribodetector_cpu -t 40 \
+      -l 50 \
+      -i $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
+      -e norrna \
+      -r ribodepleted/${sampleR1}_rRNAonly.fastq ribodepleted/${sampleR2}_rRNAonly.fastq \
+      --chunk_size 256 \
+      -o ribodepleted/${sampleR1}_norRNA.fastq ribodepleted/${sampleR2}_norRNA.fastq
 done
 
 echo "Step 5: Align reads to Mycobacterium genome using STAR"
@@ -103,14 +120,25 @@ paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR
 
    STAR --genomeDir $parameterFolder/Genome_indices \
       --runThreadN 8 \
-      --readFilesIn $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
-      --readFilesCommand zcat \
+      --readFilesIn $parameterFolder/ribodepleted/${sampleR1}_norRNA.fastq $parameterFolder/ribodepleted/${sampleR2}_norRNA.fastq \
       --alignIntronMax 1 \
       --limitBAMsortRAM 1172893133 \
-      --outFileNamePrefix $parameterFolder/STAR/${sampleR1}_trimmed_STAR_Aligned \
+      --outFileNamePrefix $parameterFolder/STAR/${sampleR1}_STAR \
       --outSAMtype BAM SortedByCoordinate
 
 done
+
+# echo "Step 5: Align reads to Mycobacterium genome using STAR"
+# echo "Creating genome index"
+
+# bwa index ${parameterFolder}/Genome_indices
+# paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
+
+#    echo "On sample: $sampleR1 and $sampleR2 "
+
+#    bwa mem -t 40 $parameterFolder/Genome_indices/$parameterDNA $parameterFolder/ribodepeleted/${sampleR1}_norRNA.fastq $parameterFolder/ribodepeleted/${sampleR2}_norRNA.fastq | samtools sort -@40 -o $parameterFolder/STAR/${sampleR1}.bam -
+
+# done
 
 echo "Step 6: Counting reads with featureCounts"
 echo "Begin counting"
