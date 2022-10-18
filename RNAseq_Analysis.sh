@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --time=04:00:00
+#SBATCH --time=08:00:00
 #SBATCH --ntasks=40
 #SBATCH --mem=32g
 #SBATCH --tmp=16g
@@ -12,23 +12,21 @@ helpFunction() {
    echo "Usage: $0 -f parameterFolder -i parameterInput -d parameterDNA -a parameterAnno"
    echo -e "\t-f Folder where RNA-sequencing analysis will take place"
    echo -e "\t-i Input directory containing paired-end zipped fastq files to be analyzed"
-   echo -e "\t-d DNA reference file directory path"
-   echo -e "\t-a Annotation file directory path"
+   echo -e "\t-d DNA reference files directory path"
    exit 1 # Exit script after printing help
 }
 
-while getopts "f:i:d:a:" ARGS; do
+while getopts "f:i:d:" ARGS; do
    case "$ARGS" in
    f) parameterFolder=$OPTARG ;;
    i) parameterInput=$OPTARG ;;
    d) parameterDNA=$OPTARG ;;
-   a) parameterAnno=$OPTARG ;;
    ?) helpFunction ;; # Print helpFunction in case parameter is non-existent
    esac
 done
 
 # Print helpFunction in case parameters are empty
-if [ -z "$parameterFolder" ] || [ -z "$parameterInput" ] || [ -z "$parameterDNA" ] || [ -z "$parameterAnno" ]; then
+if [ -z "$parameterFolder" ] || [ -z "$parameterInput" ] || [ -z "$parameterDNA" ]; then
    echo "Some or all of the parameters are empty"
    helpFunction
 fi
@@ -37,7 +35,6 @@ fi
 echo "$parameterFolder"
 echo "$parameterInput"
 echo "$parameterDNA"
-echo "$parameterAnno"
 
 module use ~/modulefiles.local
 module load cutadapt/2.4
@@ -45,8 +42,10 @@ module load star/2.7.1a
 module load fastqc/0.11.7
 module load python3
 module load ribodetector
-module load bwa
 module load samtools
+module load RSeQC
+module load multiqc
+
 echo "Step 1: Transferring RNAseq files to analysis directory and running FastQC on them"
 
 cd $parameterFolder
@@ -57,7 +56,15 @@ mkdir STAR
 mkdir Genome_indices
 mkdir Fastqc
 mkdir ribodepleted
-cp -t ${parameterFolder}/Genome_indices $parameterDNA
+
+FastaRef=($parameterDNA/*.fasta)
+AnnoRef=($parameterDNA/*.gtf)
+BedRef=($parameterDNA/*.bed)
+
+echo "$FastaRef"
+echo "$AnnoRef"
+echo "$BedRef"
+
 cp -t ${parameterFolder}/Input_reads ${parameterInput}/*.gz
 
 (
@@ -75,7 +82,7 @@ cp -t ${parameterFolder}/Input_reads ${parameterInput}/*.gz
 
 # done
 
-echo "Step 4: Trimming illumina adapters from files"
+echo "Step 4: Trimming t-overhang from files"
 paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
 
    echo "On sample: $sampleR1 and $sampleR2 "
@@ -110,7 +117,7 @@ STAR --runMode genomeGenerate \
    --genomeSAindexNbases 8 \
    --genomeDir $parameterFolder/Genome_indices \
    --runThreadN 8 \
-   --genomeFastaFiles $parameterDNA
+   --genomeFastaFiles $FastaRef
 
 echo "Aligning reads for each sample"
 
@@ -145,6 +152,29 @@ echo "Begin counting"
 /home/baughna/howex118/subread-2.0.3-source/bin/featureCounts -p --countReadPairs -s 2 -t gene -T 4 \
    -g locus_tag \
    --extraAttributes gene \
-   -a $parameterAnno \
+   -a $AnnoRef \
    -o RNAseq.featureCounts.txt \
    $parameterFolder/STAR/*.bam
+
+echo "Step 7: QC Metrics"
+echo "Create .bai indexes from .bam files for downstream analysis tools"
+
+samtools index $parameterFolder/STAR/*.bam
+
+geneBody_coverage.py -l 500 -r $BedRef -i $parameterFolder/STAR/*.bam -o genebodycoverageData
+
+paste samples_names_RNAseqR1.txt | while read sampleR1; do
+
+   echo "Competing functions on sample: $sampleR1"
+
+   inner_distance.py -i $parameterFolder/STAR/${sampleR1}_STARAligned.sortedByCoord.out.bam -o ${sampleR1}_innerdistance -r $BedRef
+   read_distribution.py -i $parameterFolder/STAR/${sampleR1}_STARAligned.sortedByCoord.out.bam -r $BedRef
+   read_duplication.py -i $parameterFolder/STAR/${sampleR1}_STARAligned.sortedByCoord.out.bam -o ${sampleR1}_read_duplication
+
+done
+
+echo "Step 8: Run MultiQC"
+multiqc $parameterFolder/ \
+   $parameterFolder/STAR \
+   $parameterFolder/ribodepleted \
+   $parameterFolder/Fastqc
