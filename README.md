@@ -21,7 +21,7 @@ for the Baughn Lab. This pipeline in its current iteration is meant to run throu
 ### Running the pipeline
 
 ```shell
-qsub RNAseq_Analysis.sh -f [/path/to/RNAseqfolder] -i [/path/to/inputfiledirectory] -d [/path/to/DNAreference] -a [/path/to/Annotationreference]
+qsub RNAseq_Analysis.sh -f [/path/to/RNAseqfolder] -i [/path/to/inputfiledirectory] -d [/path/to/DNAreferences]
 ```
 
 
