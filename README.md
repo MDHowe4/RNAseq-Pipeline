@@ -6,13 +6,15 @@ for the Baughn Lab. This pipeline in its current iteration is meant to run throu
 
 ## Pipeline Summary
 
-![RNAseq Analysis Pipeline](https://user-images.githubusercontent.com/115341984/194696781-2e1ced7f-9da8-4c62-ba02-73150b152657.png)
-
+![RNAseq Analysis Pipeline Updated](https://user-images.githubusercontent.com/115341984/196510238-d3390d45-9cd4-4e87-9fdb-0b84671a5d10.png)
 
     1. Quality Check (FastQc)
-    2. Adapter trimming without quality trimming (Cutadapt)
+    2. T-overhang trimming (Cutadapt)
+    3. rRNA contamination removal (ribodetector)
     3. Alignment (STAR)
     4. Counting (FeatureCounts)
+    5. QC (RSeQC)
+    6. Combine all outputs (MultiQC)
 
 ## Usage
 
@@ -35,7 +37,6 @@ TBAdded
 More extensive quality control with:
 
 - BEDtools, bedGraphToBigWig
-- RSeQC
 - Qualimap
-- MultiQC
+
 
