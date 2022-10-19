@@ -45,6 +45,7 @@ module load ribodetector
 module load samtools
 module load RSeQC
 module load multiqc
+module load R
 
 echo "Step 1: Transferring RNAseq files to analysis directory and running FastQC on them"
 
@@ -74,18 +75,18 @@ cp -t ${parameterFolder}/Input_reads ${parameterInput}/*.gz
    ls *_R1_001.fastq.gz | cut -f1 -d "." >$parameterFolder/samples_names_RNAseqR1.txt
    ls *_R2_001.fastq.gz | cut -f1 -d "." >$parameterFolder/samples_names_RNAseqR2.txt
 )
-# echo "Step 3: Running Fastqc"
-# paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
-
-#    fastqc -t 4 Input_reads/${sampleR1}.fastq.gz -o $parameterFolder/Fastqc
-#    fastqc -t 4 Input_reads/${sampleR2}.fastq.gz -o $parameterFolder/Fastqc
-
-# done
-
-echo "Step 4: Trimming t-overhang from files"
+echo "Step 3: Running Fastqc"
 paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
 
-   echo "On sample: $sampleR1 and $sampleR2 "
+   fastqc -t 4 Input_reads/${sampleR1}.fastq.gz -o $parameterFolder/Fastqc
+   fastqc -t 4 Input_reads/${sampleR2}.fastq.gz -o $parameterFolder/Fastqc
+
+done
+
+echo "Step 4: Trimming t-overhangs and removing rRNA from samples"
+paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
+
+   echo "Trimming onn sample: $sampleR1 and $sampleR2 "
 
    cutadapt -m 30 \
       -u 1 \
@@ -100,7 +101,7 @@ done
 
 paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
 
-   echo "On sample: $sampleR1 and $sampleR2 "
+   echo "Removing rRNA in sample: $sampleR1 and $sampleR2 "
 
    ribodetector_cpu -t 40 \
       -l 50 \
@@ -159,13 +160,18 @@ echo "Begin counting"
 echo "Step 7: QC Metrics"
 echo "Create .bai indexes from .bam files for downstream analysis tools"
 
-samtools index $parameterFolder/STAR/*.bam
+paste samples_names_RNAseqR1.txt | while read sampleR1; do
 
-geneBody_coverage.py -l 500 -r $BedRef -i $parameterFolder/STAR/*.bam -o genebodycoverageData
+   echo "Indexing sample: $sampleR1.bam"
+   samtools index $parameterFolder/STAR/${sampleR1}_STARAligned.sortedByCoord.out.bam
+
+done
+
+geneBody_coverage.py -l 500 -r $BedRef -i $parameterFolder/STAR/ -o genebodycoverageData
 
 paste samples_names_RNAseqR1.txt | while read sampleR1; do
 
-   echo "Competing functions on sample: $sampleR1"
+   echo "Completing functions on sample: $sampleR1"
 
    inner_distance.py -i $parameterFolder/STAR/${sampleR1}_STARAligned.sortedByCoord.out.bam -o ${sampleR1}_innerdistance -r $BedRef
    read_distribution.py -i $parameterFolder/STAR/${sampleR1}_STARAligned.sortedByCoord.out.bam -r $BedRef
