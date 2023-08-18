@@ -40,8 +40,6 @@ echo "$parameterDNA"
 module load cutadapt/2.4
 module load star/2.7.1a
 module load fastqc/0.11.7
-module load multiqc
-
 
 echo "Step 1: Transferring RNAseq files to analysis directory and running FastQC on them"
 
@@ -142,9 +140,3 @@ echo "Begin counting"
    -a $AnnoRef \
    -o RNAseq.featureCounts.txt \
    $parameterFolder/STAR/*.bam
-
-
-echo "Step 8: Run MultiQC"
-multiqc $parameterFolder/ \
-   $parameterFolder/STAR \
-   $parameterFolder/Fastqc
