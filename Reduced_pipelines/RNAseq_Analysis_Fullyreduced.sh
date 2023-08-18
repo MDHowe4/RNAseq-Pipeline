@@ -111,6 +111,7 @@ paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR
    STAR --genomeDir $parameterFolder/Genome_indices \
       --runThreadN 8 \
       --readFilesIn $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
+      --readFilesCommand zcat \
       --alignIntronMax 1 \
       --limitBAMsortRAM 1172893133 \
       --outFileNamePrefix $parameterFolder/STAR/${sampleR1}_STAR \
