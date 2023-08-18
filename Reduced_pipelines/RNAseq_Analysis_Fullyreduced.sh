@@ -77,7 +77,7 @@ paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR
 
 done
 
-echo "Step 4: Trimming t-overhangs and removing rRNA from samples"
+echo "Step 4: Trimming t-overhangs"
 paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
 
    echo "Trimming onn sample: $sampleR1 and $sampleR2 "
