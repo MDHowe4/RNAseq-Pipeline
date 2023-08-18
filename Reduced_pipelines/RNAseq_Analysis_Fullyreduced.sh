@@ -36,16 +36,12 @@ echo "$parameterFolder"
 echo "$parameterInput"
 echo "$parameterDNA"
 
-module use ~/modulefiles.local
+
 module load cutadapt/2.4
 module load star/2.7.1a
 module load fastqc/0.11.7
-module load python3
-module load ribodetector
-module load samtools
-module load RSeQC
 module load multiqc
-module load R
+
 
 echo "Step 1: Transferring RNAseq files to analysis directory and running FastQC on them"
 
@@ -56,15 +52,15 @@ mkdir trimmed_reads
 mkdir STAR
 mkdir Genome_indices
 mkdir Fastqc
-mkdir ribodepleted
+
 
 FastaRef=($parameterDNA/*.fasta)
 AnnoRef=($parameterDNA/*.gtf)
-BedRef=($parameterDNA/*.bed)
+
 
 echo "$FastaRef"
 echo "$AnnoRef"
-echo "$BedRef"
+
 
 cp -t ${parameterFolder}/Input_reads ${parameterInput}/*.gz
 
@@ -99,18 +95,6 @@ paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR
 
 done
 
-paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
-
-   echo "Removing rRNA in sample: $sampleR1 and $sampleR2 "
-
-   ribodetector_cpu -t 40 \
-      -l 50 \
-      -i $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
-      -e norrna \
-      -r ribodepleted/${sampleR1}_rRNAonly.fastq ribodepleted/${sampleR2}_rRNAonly.fastq \
-      --chunk_size 256 \
-      -o ribodepleted/${sampleR1}_norRNA.fastq ribodepleted/${sampleR2}_norRNA.fastq
-done
 
 echo "Step 5: Align reads to Mycobacterium genome using STAR"
 echo "Creating genome index"
@@ -128,13 +112,15 @@ paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR
 
    STAR --genomeDir $parameterFolder/Genome_indices \
       --runThreadN 8 \
-      --readFilesIn $parameterFolder/ribodepleted/${sampleR1}_norRNA.fastq $parameterFolder/ribodepleted/${sampleR2}_norRNA.fastq \
+      --readFilesIn $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
       --alignIntronMax 1 \
       --limitBAMsortRAM 1172893133 \
       --outFileNamePrefix $parameterFolder/STAR/${sampleR1}_STAR \
       --outSAMtype BAM SortedByCoordinate
 
 done
+
+# Old BWA code, should work if needed to test something.
 
 # echo "Step 5: Align reads to Mycobacterium genome using STAR"
 # echo "Creating genome index"
@@ -161,5 +147,4 @@ echo "Begin counting"
 echo "Step 8: Run MultiQC"
 multiqc $parameterFolder/ \
    $parameterFolder/STAR \
-   $parameterFolder/ribodepleted \
    $parameterFolder/Fastqc
