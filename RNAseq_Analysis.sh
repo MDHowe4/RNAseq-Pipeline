@@ -41,7 +41,7 @@ module load cutadapt/2.4
 module load star/2.7.1a
 module load fastqc/0.11.7
 module load python3
-module load ribodetector
+# module load ribodetector
 module load samtools
 module load RSeQC
 module load multiqc
@@ -99,18 +99,18 @@ paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR
 
 done
 
-paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
+# paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR1 sampleR2; do
 
-   echo "Removing rRNA in sample: $sampleR1 and $sampleR2 "
+#    echo "Removing rRNA in sample: $sampleR1 and $sampleR2 "
 
-   ribodetector_cpu -t 40 \
-      -l 50 \
-      -i $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
-      -e norrna \
-      -r ribodepleted/${sampleR1}_rRNAonly.fastq ribodepleted/${sampleR2}_rRNAonly.fastq \
-      --chunk_size 256 \
-      -o ribodepleted/${sampleR1}_norRNA.fastq ribodepleted/${sampleR2}_norRNA.fastq
-done
+#    ribodetector_cpu -t 40 \
+#       -l 50 \
+#       -i $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
+#       -e norrna \
+#       -r ribodepleted/${sampleR1}_rRNAonly.fastq ribodepleted/${sampleR2}_rRNAonly.fastq \
+#       --chunk_size 256 \
+#       -o ribodepleted/${sampleR1}_norRNA.fastq ribodepleted/${sampleR2}_norRNA.fastq
+# done
 
 echo "Step 5: Align reads to Mycobacterium genome using STAR"
 echo "Creating genome index"
@@ -128,7 +128,7 @@ paste samples_names_RNAseqR1.txt samples_names_RNAseqR2.txt | while read sampleR
 
    STAR --genomeDir $parameterFolder/Genome_indices \
       --runThreadN 8 \
-      --readFilesIn $parameterFolder/ribodepleted/${sampleR1}_norRNA.fastq $parameterFolder/ribodepleted/${sampleR2}_norRNA.fastq \
+      --readFilesIn $parameterFolder/trimmed_reads/${sampleR1}_trimmed.fastq.gz $parameterFolder/trimmed_reads/${sampleR2}_trimmed.fastq.gz \
       --alignIntronMax 1 \
       --limitBAMsortRAM 1172893133 \
       --outFileNamePrefix $parameterFolder/STAR/${sampleR1}_STAR \
@@ -182,5 +182,5 @@ done
 echo "Step 8: Run MultiQC"
 multiqc $parameterFolder/ \
    $parameterFolder/STAR \
-   $parameterFolder/ribodepleted \
+   # $parameterFolder/ribodepleted \
    $parameterFolder/Fastqc
